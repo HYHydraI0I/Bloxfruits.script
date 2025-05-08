@@ -1,0 +1,166 @@
+--// Blox Fruits Full Utility Script for Xeno (Executor-Compatible)
+--// Includes: GUI Fix, ESPs, Auto Aim, Teleport, FPS Boost, Movement, Item Notifier
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local LocalPlayer = Players.LocalPlayer
+
+-- Create and protect GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "BloxFruitsUtility"
+ScreenGui.ResetOnSpawn = false
+if gethui then
+    ScreenGui.Parent = gethui()
+elseif syn and syn.protect_gui then
+    syn.protect_gui(ScreenGui)
+    ScreenGui.Parent = CoreGui
+else
+    ScreenGui.Parent = CoreGui
+end
+
+-- UI LIBRARY
+local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
+local Window = library.CreateLib("Blox Fruits Utility", "Ocean")
+
+-- Tabs
+local combatTab = Window:NewTab("Combat")
+local fruitTab = Window:NewTab("Fruits")
+local teleportTab = Window:NewTab("Teleport")
+local settingsTab = Window:NewTab("Settings")
+
+-- Sections
+local aimSection = combatTab:NewSection("Auto Aim")
+local fruitSection = fruitTab:NewSection("Fruit Tools")
+local tpSection = teleportTab:NewSection("Teleport")
+local settingSection = settingsTab:NewSection("Performance & Tweaks")
+local movementSection = settingsTab:NewSection("Movement")
+
+-- Auto Aim
+local autoAimEnabled = false
+local aimbotKey = Enum.KeyCode.F
+local aimRadius = 100
+
+aimSection:NewToggle("Enable Softlock (Hold F)", "Locks onto nearest head", function(state)
+    autoAimEnabled = state
+end)
+
+RunService.RenderStepped:Connect(function()
+    if autoAimEnabled and UserInputService:IsKeyDown(aimbotKey) then
+        local closestTarget, shortestDistance = nil, aimRadius
+        for _, v in ipairs(Players:GetPlayers()) do
+            if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild("Head") then
+                local headPos = workspace.CurrentCamera:WorldToViewportPoint(v.Character.Head.Position)
+                local mousePos = UserInputService:GetMouseLocation()
+                local dist = (Vector2.new(headPos.X, headPos.Y) - mousePos).magnitude
+                if dist < shortestDistance then
+                    shortestDistance = dist
+                    closestTarget = v.Character.Head
+                end
+            end
+        end
+        if closestTarget then
+            workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, closestTarget.Position)
+        end
+    end
+end)
+
+-- Fruit ESP + Auto TP
+local espEnabled = false
+local autoTPFruit = false
+
+fruitSection:NewToggle("Fruit ESP", "Shows dropped fruits", function(state)
+    espEnabled = state
+end)
+
+fruitSection:NewToggle("Auto Teleport Fruit", "TPs to dropped fruits", function(state)
+    autoTPFruit = state
+end)
+
+RunService.RenderStepped:Connect(function()
+    for _, fruit in ipairs(workspace:GetDescendants()) do
+        if fruit:IsA("Tool") and string.find(fruit.Name:lower(), "fruit") then
+            if espEnabled and not fruit:FindFirstChild("Highlight") then
+                local hl = Instance.new("Highlight", fruit)
+                hl.FillColor = Color3.fromRGB(255, 128, 0)
+                hl.OutlineColor = Color3.new(1, 1, 1)
+            end
+            if autoTPFruit then
+                LocalPlayer.Character.HumanoidRootPart.CFrame = fruit.Handle.CFrame + Vector3.new(0, 3, 0)
+            end
+        end
+    end
+end)
+
+-- Teleport to NPCs
+local npcList = {}
+for _, v in ipairs(workspace:GetDescendants()) do
+    if v:IsA("Model") and v:FindFirstChild("Humanoid") then
+        table.insert(npcList, v.Name)
+    end
+end
+
+tpSection:NewDropdown("Teleport to NPC", "Choose NPC", npcList, function(npc)
+    local target = workspace:FindFirstChild(npc)
+    if target and target:FindFirstChild("HumanoidRootPart") then
+        LocalPlayer.Character.HumanoidRootPart.CFrame = target.HumanoidRootPart.CFrame + Vector3.new(0, 5, 0)
+    end
+end)
+
+-- Auto Haki
+settingSection:NewButton("Auto Haki", "Toggles Buso Haki", function()
+    local args = {[1] = "Buso"}
+    game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer(unpack(args))
+end)
+
+-- FPS Boost
+settingSection:NewButton("FPS Boost", "Disables visual effects", function()
+    for _, v in ipairs(workspace:GetDescendants()) do
+        if v:IsA("ParticleEmitter") or v:IsA("Trail") then
+            v:Destroy()
+        end
+    end
+    setfpscap(100)
+end)
+
+-- Movement
+movementSection:NewSlider("WalkSpeed", "Speed of your character", 200, 16, function(val)
+    LocalPlayer.Character.Humanoid.WalkSpeed = val
+end)
+
+movementSection:NewSlider("JumpPower", "Jump height", 200, 50, function(val)
+    LocalPlayer.Character.Humanoid.JumpPower = val
+end)
+
+-- SafeZone ESP
+settingSection:NewToggle("SafeZone ESP", "Highlights safe zones", function(toggle)
+    if toggle then
+        for _, part in ipairs(workspace:GetDescendants()) do
+            if part:IsA("BasePart") and string.find(part.Name:lower(), "safe") then
+                local highlight = Instance.new("Highlight", part)
+                highlight.FillColor = Color3.fromRGB(0, 255, 0)
+            end
+        end
+    else
+        for _, hl in ipairs(workspace:GetDescendants()) do
+            if hl:IsA("Highlight") and hl.Parent and hl.Parent:IsA("BasePart") then
+                hl:Destroy()
+            end
+        end
+    end
+end)
+
+-- Item Notifier
+RunService.RenderStepped:Connect(function()
+    for _, item in ipairs(workspace:GetDescendants()) do
+        if item:IsA("Tool") and (item.Name:lower():find("fruit") or item.Name:lower():find("legendary")) then
+            library:Notify("Item Spawned: " .. item.Name)
+        end
+    end
+end)
+
+-- Player ESP
+-- You can add player box/bone/name/distance ESP here if needed
+-- Let me know if you want it in full detail (FPS-safe version)
+
+-- END OF SCRIPT
